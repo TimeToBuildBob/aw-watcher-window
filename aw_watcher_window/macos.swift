@@ -262,11 +262,16 @@ func longestResearchMatch(_ haystack: String) -> String? {
   var bestLength = -1
   for item in researchCategoryMap {
     if item.pattern.isEmpty { continue }
+    // Compare by Unicode scalar count, not Character count: Swift's `count`
+    // measures grapheme clusters while Python's `len()` measures code points,
+    // which would let the two twins pick different winners for non-ASCII
+    // patterns of equal visual length.
+    let patternLength = item.pattern.unicodeScalars.count
     if haystack.range(of: item.pattern, options: [.caseInsensitive]) != nil,
-      item.pattern.count > bestLength
+      patternLength > bestLength
     {
       bestCategory = item.category
-      bestLength = item.pattern.count
+      bestLength = patternLength
     }
   }
   return bestCategory
