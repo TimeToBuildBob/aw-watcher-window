@@ -251,19 +251,36 @@ func isResearchBrowser(_ app: String) -> Bool {
   return researchBrowserApps.contains(app.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
 }
 
+// Return the category of the *longest* pattern contained in `haystack`.
+// Longest-match beats map order because study maps routinely contain both a
+// generic and a specific form of the same host ("google.com" vs
+// "docs.google.com"); first-match-wins would file every Google Docs/Drive/
+// Calendar/Meet URL under the generic entry. Ties resolve to map order.
+// Twin of `_longest_match` in research_filter.py — keep the two in sync.
+func longestResearchMatch(_ haystack: String) -> String? {
+  var bestCategory: String?
+  var bestLength = -1
+  for item in researchCategoryMap {
+    if item.pattern.isEmpty { continue }
+    if haystack.range(of: item.pattern, options: [.caseInsensitive]) != nil,
+      item.pattern.count > bestLength
+    {
+      bestCategory = item.category
+      bestLength = item.pattern.count
+    }
+  }
+  return bestCategory
+}
+
 func classifyResearch(_ title: String, url: String?) -> String {
   // Try URL first — more reliable than page title, which can change mid-load
   if let url = url, !url.isEmpty {
-    for item in researchCategoryMap {
-      if url.range(of: item.pattern, options: [.caseInsensitive]) != nil {
-        return item.category
-      }
+    if let category = longestResearchMatch(url) {
+      return category
     }
   }
-  for item in researchCategoryMap {
-    if title.range(of: item.pattern, options: [.caseInsensitive]) != nil {
-      return item.category
-    }
+  if let category = longestResearchMatch(title) {
+    return category
   }
   return "excluded"
 }
