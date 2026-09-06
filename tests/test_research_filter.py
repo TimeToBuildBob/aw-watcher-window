@@ -1,6 +1,8 @@
 """Tests for aw-watcher-window Research Edition filter."""
 
+import re
 import unittest
+from pathlib import Path
 
 from aw_watcher_window.research_filter import (
     BROWSER_APPS,
@@ -40,6 +42,17 @@ class TestIsBrowser(unittest.TestCase):
     def test_non_browsers(self):
         for app in ("Slack", "Terminal", "iTerm2", "Code", "zoom.us", ""):
             self.assertFalse(is_browser(app), f"{app!r} should not be a browser")
+
+    def test_python_and_swift_browser_aliases_match(self):
+        swift = (Path(__file__).parents[1] / "aw_watcher_window" / "macos.swift").read_text()
+        match = re.search(
+            r"let\s+researchBrowserApps\s*=\s*Set\s*\(\s*\[(?P<entries>.*?)\]\s*\)",
+            swift,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        swift_browser_apps = set(re.findall(r'"([^"]+)"', match.group("entries")))
+        self.assertEqual(swift_browser_apps, BROWSER_APPS)
 
 
 class TestClassifyTitle(unittest.TestCase):
@@ -190,6 +203,17 @@ class TestTransform(unittest.TestCase):
                 result = transform(window, self.CATEGORY_MAP)
                 self.assertEqual(result["app"], app)
                 self.assertEqual(result["title"], "Youtube")
+
+    def test_original_classifier_browser_aliases_are_classified(self):
+        for app in ("Arc", "Arc Browser", "Vivaldi", "Vivaldi.exe", "Chromium.exe"):
+            with self.subTest(app=app):
+                window = {
+                    "app": app,
+                    "title": "New Tab",
+                    "url": "https://youtube.com/watch?v=private",
+                }
+                result = transform(window, self.CATEGORY_MAP)
+                self.assertEqual(result, {"app": app, "title": "Youtube"})
 
     def test_input_not_mutated(self):
         window = {"app": "Chrome", "title": "YouTube - Chrome"}
